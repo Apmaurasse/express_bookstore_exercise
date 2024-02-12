@@ -1,7 +1,10 @@
 const express = require("express");
-const Book = require("../models/book");
-
 const router = new express.Router();
+
+const { validate } = require("jsonschema");
+const bookSchema = require("../schemas/bookSchema");
+
+const Book = require("../models/book");
 
 
 /** GET / => {books: [book, ...]}  */
@@ -28,21 +31,44 @@ router.get("/:id", async function (req, res, next) {
 
 /** POST /   bookData => {book: newBook}  */
 
-router.post("/", async function (req, res, next) {
+router.post("/", async function(req, res, next) {
   try {
+    const validation = validate(req.body, bookSchema);
+    if (!validation.valid) {
+      return next({
+        status: 400,
+        error: validation.errors.map(e => e.stack)
+      });
+    }
     const book = await Book.create(req.body);
-    return res.status(201).json({ book });
-  } catch (err) {
+    return res.status(201).json({book});
+  }
+
+  catch (err) {
     return next(err);
   }
 });
 
 /** PUT /[isbn]   bookData => {book: updatedBook}  */
 
-router.put("/:isbn", async function (req, res, next) {
+router.put("/:isbn", async function(req, res, next) {
   try {
+    if (!("isbn" in req.body)) {
+      return next({
+        status: 400,
+        message: "ISBN is missing from request body"
+      });
+    }
+    const validation = validate(req.body, bookSchema);
+    if (!validation.valid) {
+      return next({
+        status: 400,
+        message: "Invalid request data",
+        errors: validation.errors.map(e => e.stack)
+      });
+    }
     const book = await Book.update(req.params.isbn, req.body);
-    return res.json({ book });
+    return res.status(200).json({ book });
   } catch (err) {
     return next(err);
   }
